@@ -1,0 +1,61 @@
+---
+  - name: VM from template
+    hosts: all 
+    gather_facts: false
+    connection: local
+    vars:
+      vcenter_hostname: vc-01.lab.adms.local
+      datacenter: ADMS-LL-DC
+      datastore: ATLL-VSAN-DS
+      vmtemplate: "Ubuntu1604-Base-Image"
+      vmcluster: ATLL-CLU
+      vmfolder: "/IT-Staff/CCC/DevOps"
+      resource_pool: Kubernetes
+      network: "vxw-dvs-55-virtualwire-42-sid-5013-NST-GuestVM-CCC-LS"
+      notes: Created by Ansible
+      dumpfacts: False
+      vcenter_user: ccooney
+      vcenter_pass: oow7AiShei9aek3zohchoh#v
+    tasks:
+      - name: Check for vSphere access parameters
+        fail: msg="Must set vcenter_user and vcenter_pass in a Vault"
+        when: (vcenter_user is not defined) or (vcenter_pass is not defined)
+        
+      - name: Create VM from template
+        vmware_guest:
+          validate_certs: False
+          hostname: "{{ vcenter_hostname }}"
+          username: "{{ vcenter_user }}"
+          password: "{{ vcenter_pass }}"
+          datacenter: "{{ datacenter }}"
+          cluster: "{{ vmcluster }}"
+          folder: "{{ vmfolder }}"
+          resource_pool: "{{ resource_pool }}"
+          name: "{{ vmname }}"
+          template: "{{ vmtemplate }}"
+          disk:
+            - size_gb: 16
+              type: thin
+              datastore: "{{ datastore }}"
+          networks:
+            - type: vmxnet3
+              name: "{{ network }}" 
+              ip: "{{ ip }}"
+              netmask: 255.255.255.0
+              gateway: 10.27.0.1
+          customization:
+              hostname: web01
+              dns_servers:
+              - 172.16.5.100
+              - 172.16.5.101
+               
+          hardware:
+            memory_mb: "{{ vm_memory | default(1024) }}"
+            num_cpus: "{{ cpucount }}" 
+          wait_for_ip_address: True
+          state: present
+        register: newvm
+        
+      - name: IP address info
+        debug:
+          msg: "{{ newvm.instance.ipv4 }} {{ vmname }}"
